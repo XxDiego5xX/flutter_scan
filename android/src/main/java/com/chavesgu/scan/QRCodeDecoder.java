@@ -70,15 +70,18 @@ public class QRCodeDecoder {
                 (float) MAX_PICTURE_PIXEL / height
         );
 
-        if (scale >= 1) return bitmap;
+        if (scale < 1) {
+            width = (int) (width * scale);
+            height = (int) (height * scale);
+        }
 
-        return Bitmap.createScaledBitmap(
-                bitmap,
-                (int) (width * scale),
-                (int) (height * scale),
-                true
-        );
+        // 🔥 Asegurar dimensiones pares
+        if (width % 2 != 0) width--;
+        if (height % 2 != 0) height--;
+
+        return Bitmap.createScaledBitmap(bitmap, width, height, true);
     }
+
 
     private static Result decodeImage(byte[] data, int width, int height) {
 
