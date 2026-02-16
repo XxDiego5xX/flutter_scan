@@ -3,14 +3,16 @@ package com.chavesgu.scan;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.AsyncTask;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 
 import androidx.annotation.NonNull;
 
-import java.lang.ref.WeakReference;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -29,27 +31,35 @@ public class ScanPlugin implements FlutterPlugin,
   private FlutterPluginBinding flutterPluginBinding;
 
   private MethodChannel.Result pendingResult;
-  private QrCodeAsyncTask task;
 
-  // ================= ENGINE =================
+  private ExecutorService executor;
+  private Handler mainHandler;
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
     flutterPluginBinding = binding;
     channel = new MethodChannel(binding.getBinaryMessenger(), "chavesgu/scan");
     channel.setMethodCallHandler(this);
+
+    executor = Executors.newSingleThreadExecutor();
+    mainHandler = new Handler(Looper.getMainLooper());
   }
 
   @Override
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+
+    if (executor != null) {
+      executor.shutdown();
+      executor = null;
+    }
+
     if (channel != null) {
       channel.setMethodCallHandler(null);
       channel = null;
     }
+
     flutterPluginBinding = null;
   }
-
-  // ================= ACTIVITY =================
 
   @Override
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
@@ -82,8 +92,6 @@ public class ScanPlugin implements FlutterPlugin,
     activity = null;
   }
 
-  // ================= METHOD CHANNEL =================
-
   @Override
   public void onMethodCall(@NonNull MethodCall call,
                            @NonNull MethodChannel.Result result) {
@@ -101,76 +109,61 @@ public class ScanPlugin implements FlutterPlugin,
       }
 
       String path = call.arguments();
+
+      if (path == null || path.isEmpty()) {
+        result.error("INVALID_PATH", "Image path is null or empty", null);
+        return;
+      }
+
       pendingResult = result;
 
-      task = new QrCodeAsyncTask(this, path);
-      task.execute();
+      executor.execute(() -> {
+
+        String decodeResult = null;
+
+        Bitmap bitmap = BitmapFactory.decodeFile(path);
+        if (bitmap != null) {
+          decodeResult = QRCodeDecoder.syncDecodeQRCode(bitmap);
+        }
+
+        String finalResult = decodeResult;
+
+        mainHandler.post(() -> {
+
+          if (pendingResult != null) {
+            pendingResult.success(finalResult); // null si no hay QR
+            pendingResult = null;
+          }
+
+          // Vibrar solo si hay resultado válido
+          if (finalResult != null && flutterPluginBinding != null) {
+
+            Vibrator vibrator = (Vibrator)
+                    flutterPluginBinding
+                            .getApplicationContext()
+                            .getSystemService(VIBRATOR_SERVICE);
+
+            if (vibrator != null) {
+              if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(
+                        VibrationEffect.createOneShot(
+                                50,
+                                VibrationEffect.DEFAULT_AMPLITUDE
+                        )
+                );
+              } else {
+                vibrator.vibrate(50);
+              }
+            }
+          }
+
+        });
+
+      });
 
       return;
     }
 
     result.notImplemented();
-  }
-
-  // ================= ASYNC TASK =================
-
-  static class QrCodeAsyncTask extends AsyncTask<Void, Void, String> {
-
-    private final WeakReference<ScanPlugin> weakReference;
-    private final String path;
-
-    QrCodeAsyncTask(ScanPlugin plugin, String path) {
-      weakReference = new WeakReference<>(plugin);
-      this.path = path;
-    }
-
-    @Override
-    protected String doInBackground(Void... voids) {
-
-      ScanPlugin plugin = weakReference.get();
-      if (plugin == null) return null;
-
-      Bitmap bitmap = BitmapFactory.decodeFile(path);
-      if (bitmap == null) return null;
-
-      return QRCodeDecoder.syncDecodeQRCode(bitmap);
-    }
-
-    @Override
-    protected void onPostExecute(String result) {
-
-      ScanPlugin plugin = weakReference.get();
-      if (plugin == null) return;
-
-      if (plugin.pendingResult != null) {
-        plugin.pendingResult.success(result);
-        plugin.pendingResult = null;
-      }
-
-      if (plugin.task != null) {
-        plugin.task.cancel(true);
-        plugin.task = null;
-      }
-
-      if (result != null) {
-        Vibrator vibrator = (Vibrator)
-                plugin.flutterPluginBinding
-                        .getApplicationContext()
-                        .getSystemService(VIBRATOR_SERVICE);
-
-        if (vibrator != null) {
-          if (Build.VERSION.SDK_INT >= 26) {
-            vibrator.vibrate(
-                    VibrationEffect.createOneShot(
-                            50,
-                            VibrationEffect.DEFAULT_AMPLITUDE
-                    )
-            );
-          } else {
-            vibrator.vibrate(50);
-          }
-        }
-      }
-    }
   }
 }
