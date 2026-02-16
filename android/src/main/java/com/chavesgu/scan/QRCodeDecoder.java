@@ -1,19 +1,17 @@
 package com.chavesgu.scan;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.util.Log;
 
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
-import com.google.zxing.ChecksumException;
 import com.google.zxing.DecodeHintType;
-import com.google.zxing.FormatException;
 import com.google.zxing.NotFoundException;
 import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.GlobalHistogramBinarizer;
 import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.qrcode.QRCodeReader;
+import com.google.zxing.MultiFormatReader;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,9 +21,13 @@ import java.util.Map;
 
 public class QRCodeDecoder {
 
-    private static byte[] yuvs;
-    public static int MAX_PICTURE_PIXEL = 256;
+    private static final String TAG = "QRCodeDecoder";
 
+    private static byte[] yuvs;
+
+    public static int MAX_PICTURE_PIXEL = 800;
+
+    // Mantengo el nombre original para evitar romper otras clases
     public static final List<BarcodeFormat> allFormats = new ArrayList<BarcodeFormat>() {{
         add(BarcodeFormat.QR_CODE);
         add(BarcodeFormat.CODE_128);
@@ -40,9 +42,13 @@ public class QRCodeDecoder {
                 put(DecodeHintType.CHARACTER_SET, "utf-8");
             }};
 
+    private static final MultiFormatReader reader = new MultiFormatReader();
+
     public static String syncDecodeQRCode(Bitmap bitmap) {
 
         if (bitmap == null) return null;
+
+        bitmap = compressBitmap(bitmap);
 
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
@@ -50,38 +56,85 @@ public class QRCodeDecoder {
         byte[] data = getYUV420sp(width, height, bitmap);
 
         Result result = decodeImage(data, width, height);
+
         return result != null ? result.getText() : null;
+    }
+
+    private static Bitmap compressBitmap(Bitmap bitmap) {
+
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        float scale = Math.min(
+                (float) MAX_PICTURE_PIXEL / width,
+                (float) MAX_PICTURE_PIXEL / height
+        );
+
+        if (scale >= 1) return bitmap;
+
+        return Bitmap.createScaledBitmap(
+                bitmap,
+                (int) (width * scale),
+                (int) (height * scale),
+                true
+        );
     }
 
     private static Result decodeImage(byte[] data, int width, int height) {
 
+        reader.setHints(HINTS);
+
         try {
             PlanarYUVLuminanceSource source =
-                    new PlanarYUVLuminanceSource(data, width, height,
-                            0, 0, width, height, false);
+                    new PlanarYUVLuminanceSource(
+                            data,
+                            width,
+                            height,
+                            0,
+                            0,
+                            width,
+                            height,
+                            false
+                    );
 
             BinaryBitmap bitmap =
                     new BinaryBitmap(new GlobalHistogramBinarizer(source));
 
-            return new QRCodeReader().decode(bitmap, HINTS);
-
-        } catch (FormatException | ChecksumException ignored) {
+            Result result = reader.decode(bitmap);
+            reader.reset();
+            return result;
 
         } catch (NotFoundException e) {
+
             try {
                 PlanarYUVLuminanceSource source =
-                        new PlanarYUVLuminanceSource(data, width, height,
-                                0, 0, width, height, false);
+                        new PlanarYUVLuminanceSource(
+                                data,
+                                width,
+                                height,
+                                0,
+                                0,
+                                width,
+                                height,
+                                false
+                        );
 
                 BinaryBitmap bitmap =
                         new BinaryBitmap(new HybridBinarizer(source));
 
-                return new QRCodeReader().decode(bitmap, HINTS);
+                Result result = reader.decode(bitmap);
+                reader.reset();
+                return result;
 
-            } catch (Exception ignored) {
+            } catch (Exception ex) {
+                Log.e(TAG, "Decoding failed (Hybrid)", ex);
             }
+
+        } catch (Exception e) {
+            Log.e(TAG, "General decoding error", e);
         }
 
+        reader.reset();
         return null;
     }
 
@@ -126,7 +179,6 @@ public class QRCodeDecoder {
             }
         }
 
-        bitmap.recycle();
         return yuvs;
     }
 }
