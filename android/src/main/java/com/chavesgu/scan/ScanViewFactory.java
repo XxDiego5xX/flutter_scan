@@ -8,29 +8,43 @@ import java.util.Map;
 import androidx.annotation.NonNull;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.BinaryMessenger;
-import io.flutter.plugin.common.MessageCodec;
-import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.common.StandardMessageCodec;
 import io.flutter.plugin.platform.PlatformView;
 import io.flutter.plugin.platform.PlatformViewFactory;
 
 public class ScanViewFactory extends PlatformViewFactory {
-    @NonNull private final BinaryMessenger messenger;
-    @NonNull private final Context context;
-    @NonNull private final Activity activity;
-    private ActivityPluginBinding activityPluginBinding;
 
-    ScanViewFactory(@NonNull BinaryMessenger messenger, @NonNull Context context, @NonNull Activity activity, @NonNull ActivityPluginBinding activityPluginBinding) {
+    @NonNull private final BinaryMessenger messenger;
+    @NonNull private final Activity activity;
+    @NonNull private final ActivityPluginBinding activityPluginBinding;
+
+    ScanViewFactory(
+            @NonNull BinaryMessenger messenger,
+            @NonNull Activity activity,
+            @NonNull ActivityPluginBinding activityPluginBinding
+    ) {
         super(StandardMessageCodec.INSTANCE);
         this.messenger = messenger;
-        this.context = context;
         this.activity = activity;
         this.activityPluginBinding = activityPluginBinding;
     }
 
     @Override
     public PlatformView create(Context context, int viewId, Object args) {
-        final Map<String, Object> creationParams = (Map<String, Object>) args;
-        return new ScanPlatformView(messenger, this.context, this.activity, this.activityPluginBinding, viewId, creationParams);
+
+        Map<String, Object> creationParams = null;
+
+        if (args instanceof Map) {
+            creationParams = (Map<String, Object>) args;
+        }
+
+        return new ScanPlatformView(
+                messenger,
+                context, // usar el context correcto aquí
+                activity,
+                activityPluginBinding,
+                viewId,
+                creationParams
+        );
     }
 }

@@ -70,7 +70,6 @@ public class ScanPlugin implements FlutterPlugin,
                     "chavesgu/scan_view",
                     new ScanViewFactory(
                             flutterPluginBinding.getBinaryMessenger(),
-                            flutterPluginBinding.getApplicationContext(),
                             activity,
                             binding
                     )

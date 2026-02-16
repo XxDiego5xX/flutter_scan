@@ -1,9 +1,7 @@
 package com.chavesgu.scan;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.os.Build;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,118 +10,173 @@ import java.util.Map;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import android.Manifest;
 import android.content.pm.PackageManager;
-
 
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.platform.PlatformView;
 
-public class ScanPlatformView implements PlatformView, MethodChannel.MethodCallHandler, ScanViewNew.CaptureListener {
+public class ScanPlatformView implements
+        PlatformView,
+        MethodChannel.MethodCallHandler,
+        ScanViewNew.CaptureListener {
+
     private MethodChannel channel;
-    private Context context;
-    private Activity activity;
-    private ActivityPluginBinding activityPluginBinding;
+    private final Context context;
+    private final Activity activity;
+    private final ActivityPluginBinding activityPluginBinding;
+
     private ParentView parentView;
-//    private ScanView scanView;
     private ScanViewNew scanViewNew;
     private ScanDrawView scanDrawView;
-    private boolean flashlight;
+
+    private boolean flashlight = false;
 
     ScanPlatformView(
             @NonNull BinaryMessenger messenger,
             @NonNull Context context,
             @NonNull Activity activity,
-            ActivityPluginBinding activityPluginBinding,
+            @NonNull ActivityPluginBinding activityPluginBinding,
             int viewId,
             @Nullable Map<String, Object> args
     ) {
-        channel = new MethodChannel(messenger, "chavesgu/scan/method_" + viewId);
-        channel.setMethodCallHandler(this);
 
         this.context = context;
         this.activity = activity;
         this.activityPluginBinding = activityPluginBinding;
 
-        // 🔥 AQUÍ, dentro del constructor
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
+        channel = new MethodChannel(
+                messenger,
+                "chavesgu/scan/method_" + viewId
+        );
+        channel.setMethodCallHandler(this);
 
-            ActivityCompat.requestPermissions(
-                    activity,
-                    new String[]{Manifest.permission.CAMERA},
-                    2001
-            );
-        }
+        checkCameraPermission();
 
         initForBinding(args);
     }
 
-    private void initForBinding(Map<String, Object> args) {
+    private void checkCameraPermission() {
+        if (ContextCompat.checkSelfPermission(
+                activity,
+                Manifest.permission.CAMERA
+        ) != PackageManager.PERMISSION_GRANTED) {
 
-        this.scanViewNew = new ScanViewNew(context, activity, activityPluginBinding, args);
-        this.scanViewNew.setCaptureListener(this);
+            Log.e("ScanPlugin", "Camera permission not granted. Handle it in Flutter.");
+        }
+    }
 
-        this.scanDrawView = new ScanDrawView(context, activity, args);
+    private void initForBinding(@Nullable Map<String, Object> args) {
 
-        this.parentView = new ParentView(context);
+        scanViewNew = new ScanViewNew(
+                context,
+                activity,
+                activityPluginBinding,
+                args
+        );
 
-        // 🔥 IMPORTANTE: Asignar LayoutParams
+        scanViewNew.setCaptureListener(this);
+
+        scanDrawView = new ScanDrawView(context, activity, args);
+
+        parentView = new ParentView(context);
+
         ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         );
 
-        this.scanViewNew.setLayoutParams(params);
-        this.scanDrawView.setLayoutParams(params);
-        this.parentView.setLayoutParams(params);
+        scanViewNew.setLayoutParams(params);
+        scanDrawView.setLayoutParams(params);
+        parentView.setLayoutParams(params);
 
-        this.parentView.addView(this.scanViewNew);
-        this.parentView.addView(this.scanDrawView);
+        parentView.addView(scanViewNew);
+        parentView.addView(scanDrawView);
     }
 
     @Override
     public View getView() {
-        return this.parentView;
+        return parentView;
     }
 
     @Override
     public void dispose() {
-        this.scanViewNew.dispose();
+
+        if (scanViewNew != null) {
+            scanViewNew.dispose();
+            scanViewNew = null;
+        }
+
+        if (scanDrawView != null) {
+            scanDrawView.pause();
+            scanDrawView = null;
+        }
+
+        if (channel != null) {
+            channel.setMethodCallHandler(null);
+            channel = null;
+        }
+
+        parentView = null;
     }
 
     @Override
-    public void onMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
-        if (call.method.equals("resume")) {
-            resume();
-        } else if (call.method.equals("pause")) {
-            pause();
-        } else if (call.method.equals("toggleTorchMode")) {
-            toggleTorchMode();
+    public void onMethodCall(
+            @NonNull MethodCall call,
+            @NonNull MethodChannel.Result result
+    ) {
+
+        switch (call.method) {
+
+            case "resume":
+                resume();
+                result.success(null);
+                break;
+
+            case "pause":
+                pause();
+                result.success(null);
+                break;
+
+            case "toggleTorchMode":
+                toggleTorchMode();
+                result.success(null);
+                break;
+
+            default:
+                result.notImplemented();
+                break;
         }
     }
 
     private void resume() {
-        this.scanViewNew.resume();
-        this.scanDrawView.resume();
+        if (scanViewNew != null) scanViewNew.resume();
+        if (scanDrawView != null) scanDrawView.resume();
     }
+
     private void pause() {
-        this.scanViewNew.pause();
-        this.scanDrawView.pause();
+        if (scanViewNew != null) scanViewNew.pause();
+        if (scanDrawView != null) scanDrawView.pause();
     }
+
     private void toggleTorchMode() {
-        this.scanViewNew.toggleTorchMode(!flashlight);
-        flashlight = !flashlight;
+        if (scanViewNew != null) {
+            flashlight = !flashlight;
+            scanViewNew.toggleTorchMode(flashlight);
+        }
     }
 
     @Override
     public void onCapture(String text) {
-        channel.invokeMethod("onCaptured", text);
+
+        if (channel != null) {
+            channel.invokeMethod("onCaptured", text);
+        }
+
         pause();
     }
 }
