@@ -1,3 +1,10 @@
+## 2.0.0
+
+- Migrated to Flutter 3
+- Updated for Dart 3 compatibility
+- Fixed Android embedding v2
+- General maintenance and modernization
+
 ## 1.6.0
 - fix important scan area bug
 ## 1.5.2
