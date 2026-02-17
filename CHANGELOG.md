@@ -1,5 +1,4 @@
 ## 2.0.0
-
 - Migrated to Flutter 3
 - Updated for Dart 3 compatibility
 - Fixed Android embedding v2

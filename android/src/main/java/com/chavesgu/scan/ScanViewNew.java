@@ -39,7 +39,7 @@ public class ScanViewNew extends BarcodeView {
 
     private QrCodeAsyncTask task;
 
-    // ✅ Constructor que ScanPlatformView necesita
+    // Constructor que ScanPlatformView necesita
     public ScanViewNew(
             Context context,
             Activity activity,
@@ -101,7 +101,7 @@ public class ScanViewNew extends BarcodeView {
         }
     }
 
-    // ✅ Ahora coinciden con ScanPlatformView
+    // Ahora coinciden con ScanPlatformView
     public void resume() {
         super.resume();
     }
