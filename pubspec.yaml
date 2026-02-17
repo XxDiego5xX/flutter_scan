@@ -12,6 +12,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  barcode_scan2: ^4.7.2
 
 dev_dependencies:
   flutter_test:
