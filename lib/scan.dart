@@ -45,12 +45,13 @@ class _ScanViewState extends State<ScanView> {
         viewType: 'chavesgu/scan_view',
         creationParamsCodec: StandardMessageCodec(),
         creationParams: {
-          "r": widget.scanLineColor.red,
-          "g": widget.scanLineColor.green,
-          "b": widget.scanLineColor.blue,
-          "a": widget.scanLineColor.opacity,
+          "r": (widget.scanLineColor.r * 255).round().clamp(0, 255),
+          "g": (widget.scanLineColor.g * 255).round().clamp(0, 255),
+          "b": (widget.scanLineColor.b * 255).round().clamp(0, 255),
+          "a": widget.scanLineColor.a,
           "scale": widget.scanAreaScale,
         },
+
         onPlatformViewCreated: (id) {
           _onPlatformViewCreated(id);
         },
@@ -60,12 +61,13 @@ class _ScanViewState extends State<ScanView> {
         viewType: 'chavesgu/scan_view',
         creationParamsCodec: StandardMessageCodec(),
         creationParams: {
-          "r": widget.scanLineColor.red,
-          "g": widget.scanLineColor.green,
-          "b": widget.scanLineColor.blue,
-          "a": widget.scanLineColor.opacity,
+          "r": (widget.scanLineColor.r * 255).round().clamp(0, 255),
+          "g": (widget.scanLineColor.g * 255).round().clamp(0, 255),
+          "b": (widget.scanLineColor.b * 255).round().clamp(0, 255),
+          "a": widget.scanLineColor.a,
           "scale": widget.scanAreaScale,
         },
+
         onPlatformViewCreated: (id) {
           _onPlatformViewCreated(id);
         },

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:scan/scan.dart';
 
 class ScanPage extends StatelessWidget {
-  ScanController controller = ScanController();
+  final ScanController controller = ScanController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
